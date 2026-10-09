@@ -49,15 +49,20 @@ def main():
     out["baseline_item_mean"] = {"rmse": rmse(base_i)}
 
     # ---------- ALS grid search on validation ----------
-    grid = []
-    for rank, reg in itertools.product(RANKS, REGS):
-        t0 = time.time()
-        als = ALS(userCol="userId", itemCol="movieId", ratingCol="rating", rank=rank, regParam=reg,
-                  maxIter=MAX_ITER, coldStartStrategy="drop", nonnegative=True, seed=42)
-        m = als.fit(train)
-        v = rmse(m.transform(val))
-        grid.append({"rank": rank, "regParam": reg, "val_rmse": v, "fit_seconds": round(time.time() - t0, 1)})
-        print(grid[-1], flush=True)
+    prev = os.path.join(RESULTS, "metrics_als.json")
+    if os.environ.get("SKIP_GRID") == "1" and os.path.exists(prev):
+        grid = json.load(open(prev))["als_grid"]      # reuse a finished search
+        print("Reusing existing grid from metrics_als.json", flush=True)
+    else:
+        grid = []
+        for rank, reg in itertools.product(RANKS, REGS):
+            t0 = time.time()
+            als = ALS(userCol="userId", itemCol="movieId", ratingCol="rating", rank=rank, regParam=reg,
+                      maxIter=MAX_ITER, coldStartStrategy="drop", nonnegative=True, seed=42)
+            m = als.fit(train)
+            v = rmse(m.transform(val))
+            grid.append({"rank": rank, "regParam": reg, "val_rmse": v, "fit_seconds": round(time.time() - t0, 1)})
+            print(grid[-1], flush=True)
     out["als_grid"] = grid
     best = min(grid, key=lambda g: g["val_rmse"])
     out["als_best_params"] = {"rank": best["rank"], "regParam": best["regParam"], "maxIter": MAX_ITER}
@@ -69,11 +74,22 @@ def main():
                 regParam=best["regParam"], maxIter=MAX_ITER, coldStartStrategy="drop",
                 nonnegative=True, seed=42).fit(tv)
     out["als_test"] = {"rmse": rmse(final.transform(test)), "fit_seconds": round(time.time() - t0, 1)}
-    cov = final.transform(test).count() / max(out["split_counts"]["test"], 1)
+    scored = final.transform(test).cache()
+    cov = scored.count() / max(out["split_counts"]["test"], 1)
     out["als_test"]["coverage"] = cov   # share of test rows scored (cold-start rows are dropped)
+    # fair comparison: baselines restricted to exactly the rows ALS scored
+    keys = scored.select("userId", "movieId")
+    out["baseline_global_mean_covered"] = {"rmse": rmse(base_g.join(keys, ["userId", "movieId"]))}
+    out["baseline_item_mean_covered"] = {"rmse": rmse(base_i.join(keys, ["userId", "movieId"]))}
 
     # ---------- top-K ranking evaluation ----------
-    rel = test.filter(F.col("rating") >= REL)
+    # Evaluate on "warm" users (present in train+val) and items the model could ever recommend.
+    # Users/items unseen in training cannot be scored by collaborative filtering at all.
+    warm_users = tv.select("userId").distinct()
+    warm_items = tv.select("movieId").distinct()
+    rel_all = test.filter(F.col("rating") >= REL)
+    rel = rel_all.join(warm_items, "movieId").join(warm_users, "userId")
+    out["topk_pool"] = {"relevant_events_all": rel_all.count(), "relevant_events_warm": rel.count()}
     users = (rel.select("userId").distinct().orderBy(F.rand(1)).limit(EVAL_USERS)).cache()
     truth_pd = rel.join(users, "userId").select("userId", "movieId").toPandas()
     truth = truth_pd.groupby("userId")["movieId"].apply(set).to_dict()

@@ -4,7 +4,7 @@ import os, sys, json
 from common import RESULTS, ROOT
 
 PAPER = os.path.join(ROOT, "paper")
-NAMES = ["dsRatings","dsUsers","dsItems","ingestSec","nTrain","nVal","nTest","rmseGlobal","rmseItem","rmseAls",
+NAMES = ["dsRatings","dsUsers","dsItems","ingestSec","nTrain","nVal","nTest","rmseGlobal","rmseItem","rmseGlobalCov","rmseItemCov","rmseAls",
          "bestRank","bestReg","alsFitSec","alsCoverage","evalUsers","precPop","precAls","recPop","recAls",
          "covPop","covAls","churnUsers","churnRate","aucLR","aucGBT","prLR","prGBT","topFeatA","topFeatB","topFeatC","streamRows"]
 
@@ -22,6 +22,8 @@ def build():
         "ingestSec": ds["ingest_seconds"], "nTrain": comma(a["split_counts"]["train"]),
         "nVal": comma(a["split_counts"]["val"]), "nTest": comma(a["split_counts"]["test"]),
         "rmseGlobal": fmt(a["baseline_global_mean"]["rmse"]), "rmseItem": fmt(a["baseline_item_mean"]["rmse"]),
+        "rmseGlobalCov": fmt(a.get("baseline_global_mean_covered", {}).get("rmse", float("nan"))),
+        "rmseItemCov": fmt(a.get("baseline_item_mean_covered", {}).get("rmse", float("nan"))),
         "rmseAls": fmt(a["als_test"]["rmse"]), "bestRank": a["als_best_params"]["rank"],
         "bestReg": a["als_best_params"]["regParam"], "alsFitSec": a["als_test"]["fit_seconds"],
         "alsCoverage": fmt(100 * a["als_test"]["coverage"], 1), "evalUsers": comma(tk["eval_users"]),

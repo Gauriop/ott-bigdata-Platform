@@ -23,7 +23,7 @@ email2@vit.edu.in}}
 \maketitle
 
 \begin{abstract}
-Over-the-top (OTT) streaming platforms depend on recommendation engines to keep viewers engaged, and on early detection of disengagement to reduce subscriber churn. Both tasks operate on very large, sparse and continuously growing interaction logs. We present an end-to-end Big Data pipeline built on Apache Spark that (i) ingests the MovieLens 25M ratings corpus into columnar storage, (ii) trains a distributed Alternating Least Squares (ALS) collaborative-filtering model with a leak-free chronological split, (iii) derives an engagement-decay churn signal from behavioural features, and (iv) demonstrates low-latency serving with Spark Structured Streaming. The tuned ALS model attains a test RMSE of \rmseAls{} against \rmseGlobal{} for a global-mean baseline, and a Precision@10 of \precAls{} versus \precPop{} for a popularity baseline. A gradient-boosted churn classifier reaches an ROC-AUC of \aucGBT{}. All code and instructions are publicly available.
+Over-the-top (OTT) streaming platforms depend on recommendation engines to keep viewers engaged, and on early detection of disengagement to reduce subscriber churn. Both tasks operate on very large, sparse and continuously growing interaction logs. We present an end-to-end Big Data pipeline built on Apache Spark that (i) ingests the MovieLens 25M ratings corpus into columnar storage, (ii) trains a distributed Alternating Least Squares (ALS) collaborative-filtering model with a leak-free chronological split, (iii) derives an engagement-decay churn signal from behavioural features, and (iv) demonstrates low-latency serving with Spark Structured Streaming. On the test rows it can score, the tuned ALS model attains an RMSE of \rmseAls{} against \rmseGlobalCov{} for a global-mean baseline; for top-10 ranking on previously seen users, Precision@10 is \precAls{} for ALS and \precPop{} for a popularity baseline. A gradient-boosted engagement-decay classifier reaches an ROC-AUC of \aucGBT{} on a highly imbalanced label. All code and instructions are publicly available.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -144,7 +144,7 @@ Features are computed strictly from events before $t_c$: rating count, mean and 
 The final top-10 lists are stored as a table. A rate-source stream of synthetic viewing events is joined with that table inside Spark Structured Streaming~\cite{structured} with 2-second micro-batches, simulating on-demand recommendation lookups. In a 15-second test it served \streamRows{} lists. This demonstrates the serving pattern rather than production latency.
 
 \section{Experimental Setup}\label{sec:eval}
-All jobs ran in Spark local mode with PySpark. Hyper-parameters were rank $\in\{10,20,50\}$ and $\lambda\in\{0.05,0.1,0.2\}$ with 10 iterations. \textbf{Cold start:} test rows whose user or item is absent from training are dropped by ALS; we report the scored share as coverage (\alsCoverage\%). \textbf{Ranking evaluation:} for a random sample of \evalUsers{} test users with at least one relevant item, we request 200 candidates from ALS, remove titles the user has already rated in train+validation, and keep the top 10. The popularity baseline recommends the most-rated unseen titles. We also report \emph{catalogue coverage}, the share of all titles that appear in any recommended list, as a proxy for diversity.
+All jobs ran in Spark local mode with PySpark. Hyper-parameters were rank $\in\{10,20,50\}$ and $\lambda\in\{0.05,0.1,0.2\}$ with 10 iterations. \textbf{Cold start:} test rows whose user or item is absent from training are dropped by ALS; we report the scored share as coverage (\alsCoverage\%). \textbf{Ranking evaluation:} collaborative filtering cannot recommend to users or titles it never saw in training, so we evaluate ranking on \emph{warm} users (present in train+validation) and count only relevant test items that also occur in training; this is applied identically to both methods. For a random sample of \evalUsers{} such users with at least one relevant item, we request 200 candidates from ALS, remove titles the user has already rated in train+validation, and keep the top 10. The popularity baseline recommends the most-rated unseen titles. We also report \emph{catalogue coverage}, the share of all titles that appear in any recommended list, as a proxy for diversity.
 
 \begin{table}[t]
 \caption{Experimental environment and configuration.}
@@ -171,20 +171,20 @@ Relevance threshold & rating $\ge 4.0$ \\
 \section{Results}
 \subsection{Rating prediction}
 \begin{table}[t]
-\caption{Rating prediction on the chronological test set (lower is better).}
+\caption{Rating prediction on the chronological test set (lower is better). The last column restricts every model to the test rows that ALS can score.}
 \label{tab:rmse}
 \centering
-\begin{tabular}{lc}
+\begin{tabular}{lcc}
 \toprule
-Model & RMSE \\
+Model & RMSE (all rows) & RMSE (ALS-scored rows) \\
 \midrule
-Global mean & \rmseGlobal \\
-Item mean & \rmseItem \\
-ALS (rank=\bestRank, $\lambda$=\bestReg) & \rmseAls \\
+Global mean & \rmseGlobal & \rmseGlobalCov \\
+Item mean & \rmseItem & \rmseItemCov \\
+ALS (rank=\bestRank, $\lambda$=\bestReg) & n/a & \rmseAls \\
 \bottomrule
 \end{tabular}
 \end{table}
-Table~\ref{tab:rmse} compares ALS with two non-personalised baselines. The grid-search validation curve is shown in Fig.~\ref{fig:rank}. The final ALS fit on train+validation took \alsFitSec{} s.
+Table~\ref{tab:rmse} compares ALS with two non-personalised baselines. Because ALS drops test rows whose user or title is unseen in training, it scores only \alsCoverage\% of the test rows; comparing it with baselines evaluated on all rows would be unfair, so the right-hand column evaluates every model on the identical ALS-scored subset. The low coverage is expected under a strict chronological split, where many late events come from users or titles that first appear after the training period; we did not break this down further. The grid-search validation curve is shown in Fig.~\ref{fig:rank}. The final ALS fit on train+validation took \alsFitSec{} s.
 
 \begin{figure}[t]
 \centering
@@ -224,12 +224,12 @@ Gradient-boosted trees & \aucGBT & \prGBT \\
 \bottomrule
 \end{tabular}
 \end{table}
-Table~\ref{tab:churn} lists classifier performance. The most important GBT features were \texttt{\topFeatA}, \texttt{\topFeatB} and \texttt{\topFeatC}. % EDIT: interpret feature importance for your run.
+Table~\ref{tab:churn} lists classifier performance. The positive class is very common (\churnRate\% of users), so PR-AUC must be read against that prevalence: a classifier that labels everyone as churned already obtains a PR-AUC near the prevalence, and ROC-AUC is the more informative figure here. The most important GBT features were \texttt{\topFeatA}, \texttt{\topFeatB} and \texttt{\topFeatC}, i.e.\ recency and activity span dominate. This fits the nature of the data: many MovieLens users rate in a single burst and never return, so the label largely captures whether a user's session ended well before the cutoff.
 
 \section{Discussion}
 \textbf{Scalability.} Parquet storage with explicit schemas and a single shared Spark session per stage keep ingestion and feature computation inexpensive, and the ALS half-steps parallelise across partitions. Moving from local mode to a cluster requires only changing the master URL and partition counts.
 
-\textbf{Threats to validity.} (i) Ratings are explicit feedback, whereas real platforms mostly observe implicit signals such as watch time. (ii) The churn label is an activity proxy, not a billing event. (iii) MovieLens users chose to rate, so selection bias exists. (iv) The streaming demo uses synthetic events. (v) Results come from a single run with a fixed seed; we did not compute confidence intervals.
+\textbf{Threats to validity.} (i) Ratings are explicit feedback, whereas real platforms mostly observe implicit signals such as watch time. (ii) The churn label is an activity proxy, not a billing event, and it is dominated by one-time raters. (iii) MovieLens users chose to rate, so selection bias exists. (iv) The streaming demo uses synthetic events. (v) Results come from a single run with a fixed seed; we did not compute confidence intervals.
 
 \textbf{Complexity.} Each ALS iteration performs two sets of $k\times k$ normal-equation solves, costing roughly $O\big(|\Omega|k^{2}+(m+n)k^{3}\big)$ per iteration, plus shuffle traffic proportional to $|\Omega|k$. Rank therefore trades accuracy against both compute and network cost, which is why the grid search records fit time alongside validation RMSE.
 

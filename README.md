@@ -37,12 +37,18 @@ cd paper && pdflatex main && pdflatex main
 ```
 (or upload the `paper/` folder to Overleaf). Until `run_all.sh` has been run, result cells show “–”.
 After a real run, `results_macros.tex` and `fig_rank.pdf` are regenerated automatically.
-Then re-read the two `% EDIT` comments in `main.tex` and make the surrounding sentences match your numbers.
+Then re-read the `% EDIT` comment in `main.tex` (ranking discussion) and make the sentence match your numbers.
+
+## Running on Google Colab (if your PC blocks Spark/pandas)
+Clone the repo in a Colab notebook, `pip install pyspark==3.5.3 requests`, then run the scripts in `src/` in order.
+To redo only the final ALS fit + evaluation after a finished grid search: `SKIP_GRID=1 python train_als.py`
+(reuses the grid stored in `results/metrics_als.json`).
 
 ## Evaluation protocol
 - **Chronological split** on global timestamps (no future leakage).
 - **Cold start:** unseen users/items in test are dropped by ALS; the scored share is reported.
-- **Ranking:** relevant = rating ≥ 4; already-seen titles removed; popularity baseline included.
+- **Ranking:** relevant = rating ≥ 4; evaluated on warm users and already-trained items only; already-seen titles removed; popularity baseline included.
+- **RMSE:** baselines are also reported on exactly the rows ALS can score (fair comparison).
 - **Churn proxy:** no events after the 80th-percentile time; features use only earlier events.
   This is an engagement proxy, not billing churn.
 
