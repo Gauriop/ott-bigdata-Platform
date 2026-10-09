@@ -1,0 +1,12 @@
+data/raw/
+data/parquet/
+data/synthetic/
+results/recs/
+spark-warehouse/
+metastore_db/
+__pycache__/
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
