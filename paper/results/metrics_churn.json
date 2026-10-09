@@ -1,0 +1,46 @@
+{
+  "users": 137804,
+  "churn_rate": 0.9538474935415517,
+  "features": [
+    "n_ratings",
+    "avg_rating",
+    "std_rating",
+    "n_titles",
+    "span_days",
+    "days_since_last",
+    "r_last30",
+    "r_last90",
+    "n_genres",
+    "recent_ratio"
+  ],
+  "logistic_regression": {
+    "auc_roc": 0.9559872875942251,
+    "auc_pr": 0.9976887506292664
+  },
+  "gbt": {
+    "auc_roc": 0.9654576192301376,
+    "auc_pr": 0.9981510831132864
+  },
+  "gbt_top_features": [
+    [
+      "days_since_last",
+      0.5621650765555243
+    ],
+    [
+      "span_days",
+      0.23524362501235718
+    ],
+    [
+      "n_ratings",
+      0.06395288747290365
+    ],
+    [
+      "std_rating",
+      0.03508850289196143
+    ],
+    [
+      "n_genres",
+      0.032604608487308104
+    ]
+  ]
+}

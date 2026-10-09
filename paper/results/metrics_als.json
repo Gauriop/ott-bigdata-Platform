@@ -1,0 +1,78 @@
+{
+  "split_counts": {
+    "train": 19948915,
+    "val": 2493504,
+    "test": 2503451
+  },
+  "baseline_global_mean": {
+    "rmse": 1.0623937971135553
+  },
+  "baseline_item_mean": {
+    "rmse": 1.0050150847532386
+  },
+  "als_grid": [
+    {
+      "rank": 10,
+      "regParam": 0.05,
+      "val_rmse": 0.8422728726281102,
+      "fit_seconds": 388.5
+    },
+    {
+      "rank": 10,
+      "regParam": 0.1,
+      "val_rmse": 0.8391603391601739,
+      "fit_seconds": 359.8
+    },
+    {
+      "rank": 20,
+      "regParam": 0.05,
+      "val_rmse": 0.8348060977063534,
+      "fit_seconds": 476.9
+    },
+    {
+      "rank": 20,
+      "regParam": 0.1,
+      "val_rmse": 0.8374629136073152,
+      "fit_seconds": 463.8
+    },
+    {
+      "rank": 50,
+      "regParam": 0.05,
+      "val_rmse": 0.830023465272027,
+      "fit_seconds": 884.0
+    },
+    {
+      "rank": 50,
+      "regParam": 0.1,
+      "val_rmse": 0.8361577596098624,
+      "fit_seconds": 870.5
+    }
+  ],
+  "als_best_params": {
+    "rank": 50,
+    "regParam": 0.05,
+    "maxIter": 10
+  },
+  "als_test": {
+    "rmse": 0.8346603689539978,
+    "fit_seconds": 1007.7,
+    "coverage": 0.17971472179803
+  },
+  "topk": {
+    "k": 10,
+    "relevance_threshold": 4.0,
+    "eval_users": 5000,
+    "popularity": {
+      "precision": 0.23044,
+      "recall": 0.04750198785871665,
+      "users": 5000,
+      "catalog_coverage": 0.006968215158924205
+    },
+    "als": {
+      "precision": 0.0011200000000000001,
+      "recall": 0.0004445726920450232,
+      "users": 5000,
+      "catalog_coverage": 0.031845965770171146
+    }
+  }
+}
